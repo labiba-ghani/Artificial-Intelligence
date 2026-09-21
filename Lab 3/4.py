@@ -11,3 +11,6 @@ for i in range(n - 1, 0, -1): #-1 dec by 1 each time
     for j in range(i):
         print("*", end=" ")
     print()
+
+# outer loop rowsa
+#inner loop columns
