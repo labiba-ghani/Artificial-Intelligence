@@ -2,3 +2,5 @@
 .env
 __pycache__/
 *.pyc
+# Local PDF used for RAG testing
+MySQL Handbook.pdf
