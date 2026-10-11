@@ -6,8 +6,7 @@ from dotenv import load_dotenv
 from groq import Groq
 from ollama import chat as ollama_chat
 
-from study_tools import get_student_progress, get_study_tips
-
+from tools.study_tools import get_student_progress, get_study_tips
 
 load_dotenv()
 
