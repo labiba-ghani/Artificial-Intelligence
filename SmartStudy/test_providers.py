@@ -1,5 +1,4 @@
-
-from ai_provider import ask_ai
+from services.ai_provider import ask_ai
 
 
 question = "What is Breadth-First Search? Explain in two sentences."
