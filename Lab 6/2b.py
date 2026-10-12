@@ -1,3 +1,4 @@
+#with path
 def dfs(graph, start, goal):
     visited = set()
     stack = [(start, [start])]
