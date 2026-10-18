@@ -1,0 +1,11 @@
+Both Depth Limited Search (DLS) and Iterative Deepening Search (IDS) 
+successfully find the goal node G from starting node A using the path A → D → G,
+which has a length of two edges.
+
+DLS is more efficient in this particular situation because the depth limit is correctly set to 2,
+allowing it to find the goal without repeating the search. 
+IDS searches at depths 0, 1, and 2, resulting in more node visits.
+
+Therefore, both algorithms produce the same shortest path, 
+but DLS requires fewer node visits in this example. 
+IDS is preferable when the depth of the goal is unknown because it automatically increases the search depth.
