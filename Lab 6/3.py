@@ -69,7 +69,7 @@ g.add_edge('L', [])
 
 g.dfs('A')
 print()
-g.dfs_with_goal('A', 'L')
+g.dfs_with_goal('A', 'Z')
 
 # class Graph: defines a class.
 # __init__() is the constructor, which runs automatically when we create an object.
