@@ -8,6 +8,10 @@ from services.pdf_service import extract_pdf_text
 from services.text_service import create_text_chunks
 from services.rag_service import DocumentRetriever
 from services.rag_answer_service import answer_from_document
+from services.quiz_service import (
+    generate_quiz_from_pdf,
+    evaluate_quiz_answer
+)
 
 
 # --------------------------------------------------
@@ -57,12 +61,15 @@ question = st.text_area(
 if st.button("Ask SmartStudy", type="primary"):
 
     if not question.strip():
+
         st.warning("Please enter a question first.")
 
     else:
+
         with st.spinner("SmartStudy is thinking..."):
 
             try:
+
                 answer = run_agent(
                     question=question,
                     provider=provider
@@ -71,13 +78,16 @@ if st.button("Ask SmartStudy", type="primary"):
                 st.session_state["general_answer"] = answer
 
             except Exception as error:
+
                 st.error(
                     "Something went wrong while processing "
                     "your question."
                 )
+
                 st.caption(
                     f"Technical details: {type(error).__name__}"
                 )
+
 
 if "general_answer" in st.session_state:
 
@@ -110,12 +120,13 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
 
     try:
+
         pdf_bytes = uploaded_file.getvalue()
 
-        # Create a unique fingerprint for the PDF
+        # Create a unique fingerprint for the PDF.
         file_id = hashlib.sha256(pdf_bytes).hexdigest()
 
-        # Only process when the uploaded PDF changes
+        # Only process when the uploaded PDF changes.
         if st.session_state.get("pdf_file_id") != file_id:
 
             pdf_data = extract_pdf_text(pdf_bytes)
@@ -129,21 +140,36 @@ if uploaded_file is not None:
                 retriever = DocumentRetriever(chunks)
 
             else:
+
                 chunks = []
                 retriever = None
 
-            # Save processed data for future interactions
+            # Save processed PDF data.
             st.session_state["pdf_data"] = pdf_data
             st.session_state["pdf_chunks"] = chunks
             st.session_state["pdf_retriever"] = retriever
             st.session_state["pdf_file_id"] = file_id
 
-            # Clear the previous document's answer
+            # Clear the previous document's answer.
             st.session_state.pop(
                 "document_result", None
             )
 
-        # Load the processed document
+            # Clear the previous document's quiz.
+            st.session_state.pop(
+                "current_quiz", None
+            )
+
+            st.session_state.pop(
+                "quiz_result", None
+            )
+
+            # Clear the previous selected answer.
+            st.session_state.pop(
+                "quiz_selected_answer", None
+            )
+
+        # Load the processed document.
         pdf_data = st.session_state["pdf_data"]
         chunks = st.session_state["pdf_chunks"]
         retriever = st.session_state["pdf_retriever"]
@@ -182,7 +208,9 @@ if uploaded_file is not None:
                         f"— Page {chunk['page_number']}"
                     )
 
-                    st.text(chunk["text"])
+                    st.text(
+                        chunk["text"]
+                    )
 
                     st.divider()
 
@@ -242,7 +270,7 @@ if uploaded_file is not None:
                             provider=provider
                         )
 
-                        # Save answer between reruns
+                        # Save answer between reruns.
                         st.session_state[
                             "document_result"
                         ] = result
@@ -285,7 +313,7 @@ if uploaded_file is not None:
                                 f"{source['score']:.4f}"
                             )
 
-                            # Find original chunk text
+                            # Find original chunk text.
                             matching_chunk = next(
                                 (
                                     chunk
@@ -304,6 +332,187 @@ if uploaded_file is not None:
 
                             st.divider()
 
+            # --------------------------------------
+            # AI Quiz Generation
+            # --------------------------------------
+
+            st.divider()
+
+            st.subheader("📝 AI Quiz Generator")
+
+            st.write(
+                "Generate a multiple-choice question "
+                "from your uploaded lecture notes."
+            )
+
+            quiz_topic = st.text_input(
+                "Enter a topic from your lecture notes:",
+                placeholder="Example: primary key",
+                key="quiz_topic"
+            )
+
+            if st.button("Generate Quiz"):
+
+                if not quiz_topic.strip():
+
+                    st.warning(
+                        "Please enter a quiz topic."
+                    )
+
+                else:
+
+                    with st.spinner(
+                        "Generating a quiz from "
+                        "your lecture notes..."
+                    ):
+
+                        try:
+
+                            quiz = generate_quiz_from_pdf(
+                                chunks=chunks,
+                                topic=quiz_topic,
+                                provider=provider
+                            )
+
+                            # Save the new quiz.
+                            st.session_state[
+                                "current_quiz"
+                            ] = quiz
+
+                            # Remove the previous score.
+                            st.session_state.pop(
+                                "quiz_result", None
+                            )
+
+                            # Reset the previous answer.
+                            st.session_state.pop(
+                                "quiz_selected_answer", None
+                            )
+
+                        except ValueError as error:
+
+                            st.warning(
+                                str(error)
+                            )
+
+                        except Exception as error:
+
+                            st.error(
+                                "Unable to generate the quiz."
+                            )
+
+                            st.caption(
+                                f"Error type: {type(error).__name__}"
+                            )
+
+            # --------------------------------------
+            # Display Generated Quiz
+            # --------------------------------------
+
+            if "current_quiz" in st.session_state:
+
+                quiz = st.session_state[
+                    "current_quiz"
+                ]
+
+                st.markdown("### Quiz Question")
+
+                st.write(
+                    quiz["question"]
+                )
+
+                # ----------------------------------
+                # Student Answer Selection
+                # ----------------------------------
+
+                selected_answer = st.radio(
+                    "Choose your answer:",
+                    options=range(4),
+                    format_func=lambda index: (
+                        f"{chr(65 + index)}. "
+                        f"{quiz['options'][index]}"
+                    ),
+                    index=None,
+                    key="quiz_selected_answer",
+                    disabled=(
+                        "quiz_result" in st.session_state
+                    )
+                )
+
+                # ----------------------------------
+                # Submit Answer
+                # ----------------------------------
+
+                if st.button(
+                    "Submit Answer",
+                    disabled=(
+                        "quiz_result" in st.session_state
+                    )
+                ):
+
+                    if selected_answer is None:
+
+                        st.warning(
+                            "Please select an answer first."
+                        )
+
+                    else:
+
+                        # Score the answer using Python.
+                        result = evaluate_quiz_answer(
+                            quiz=quiz,
+                            selected_answer=selected_answer
+                        )
+
+                        # Store the result between reruns.
+                        st.session_state[
+                            "quiz_result"
+                        ] = result
+
+                # ----------------------------------
+                # Display Quiz Result
+                # ----------------------------------
+
+                if "quiz_result" in st.session_state:
+
+                    result = st.session_state[
+                        "quiz_result"
+                    ]
+
+                    if result["is_correct"]:
+
+                        st.success(
+                            "Correct answer!"
+                        )
+
+                    else:
+
+                        st.error(
+                            "Incorrect answer."
+                        )
+
+                    # Display score.
+                    st.write(
+                        f"**Score:** {result['score']} / 1"
+                    )
+
+                    # Display correct answer.
+                    correct_index = result[
+                        "correct_answer"
+                    ]
+
+                    st.write(
+                        "**Correct Answer:** "
+                        f"{chr(65 + correct_index)}. "
+                        f"{quiz['options'][correct_index]}"
+                    )
+
+                    # Display explanation.
+                    st.write(
+                        "**Explanation:** "
+                        f"{result['explanation']}"
+                    )
+
         else:
 
             st.warning(
@@ -314,7 +523,9 @@ if uploaded_file is not None:
 
     except ValueError as error:
 
-        st.warning(str(error))
+        st.warning(
+            str(error)
+        )
 
     except Exception as error:
 
@@ -329,14 +540,18 @@ if uploaded_file is not None:
 
 else:
 
-    # Clear stored document data if upload is removed
+    # Clear stored document data if upload is removed.
     for key in [
         "pdf_file_id",
         "pdf_data",
         "pdf_chunks",
         "pdf_retriever",
-        "document_result"
+        "document_result",
+        "current_quiz",
+        "quiz_result",
+        "quiz_selected_answer"
     ]:
-        st.session_state.pop(key, None)
 
-
+        st.session_state.pop(
+            key, None
+        )
