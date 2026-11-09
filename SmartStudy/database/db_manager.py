@@ -31,6 +31,42 @@ def initialize_database():
     print("SmartStudy database initialized successfully!")
 
 
+def save_learning_interaction(
+    interaction_type,
+    topic,
+    content,
+    score=None
+):
+    """
+    Save a learning interaction to the SQLite database.
+
+    Returns the ID of the newly created record.
+    """
+
+    initialize_database()
+
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            INSERT INTO learning_history (
+                interaction_type,
+                topic,
+                content,
+                score
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (interaction_type, topic, content, score)
+        )
+
+        connection.commit()
+
+        return cursor.lastrowid
+
+
+
 if __name__ == "__main__":
     initialize_database()
 
