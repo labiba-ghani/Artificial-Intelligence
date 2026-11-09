@@ -1,5 +1,6 @@
 
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 
@@ -12,23 +13,18 @@ def initialize_database():
     Create the learning history table if it does not exist.
     """
 
-    with sqlite3.connect(DATABASE_PATH) as connection:
-        cursor = connection.cursor()
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS learning_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                interaction_type TEXT NOT NULL,
-                topic TEXT NOT NULL,
-                content TEXT NOT NULL,
-                score INTEGER,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        connection.commit()
-
-    print("SmartStudy database initialized successfully!")
+    with closing(sqlite3.connect(DATABASE_PATH)) as connection:
+        with connection:
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS learning_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    interaction_type TEXT NOT NULL,
+                    topic TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    score INTEGER,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
 
 def save_learning_interaction(
@@ -45,25 +41,24 @@ def save_learning_interaction(
 
     initialize_database()
 
-    with sqlite3.connect(DATABASE_PATH) as connection:
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            INSERT INTO learning_history (
-                interaction_type,
-                topic,
-                content,
-                score
+    with closing(sqlite3.connect(DATABASE_PATH)) as connection:
+        with connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO learning_history (
+                    interaction_type,
+                    topic,
+                    content,
+                    score
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (interaction_type, topic, content, score)
             )
-            VALUES (?, ?, ?, ?)
-            """,
-            (interaction_type, topic, content, score)
-        )
 
-        connection.commit()
+            record_id = cursor.lastrowid
 
-        return cursor.lastrowid
+        return record_id
 
 
 def get_learning_history(limit=10):
@@ -75,12 +70,10 @@ def get_learning_history(limit=10):
 
     initialize_database()
 
-    with sqlite3.connect(DATABASE_PATH) as connection:
+    with closing(sqlite3.connect(DATABASE_PATH)) as connection:
         connection.row_factory = sqlite3.Row
 
-        cursor = connection.cursor()
-
-        cursor.execute(
+        cursor = connection.execute(
             """
             SELECT
                 id,
@@ -99,6 +92,7 @@ def get_learning_history(limit=10):
         records = cursor.fetchall()
 
         return [dict(record) for record in records]
+
 
 if __name__ == "__main__":
     initialize_database()
