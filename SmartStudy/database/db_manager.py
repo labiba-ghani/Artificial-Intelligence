@@ -66,7 +66,39 @@ def save_learning_interaction(
         return cursor.lastrowid
 
 
+def get_learning_history(limit=10):
+    """
+    Retrieve the most recent learning interactions.
+
+    Returns a list of dictionaries.
+    """
+
+    initialize_database()
+
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        connection.row_factory = sqlite3.Row
+
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                id,
+                interaction_type,
+                topic,
+                content,
+                score,
+                created_at
+            FROM learning_history
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,)
+        )
+
+        records = cursor.fetchall()
+
+        return [dict(record) for record in records]
 
 if __name__ == "__main__":
     initialize_database()
-
