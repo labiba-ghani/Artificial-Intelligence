@@ -10,7 +10,11 @@ from services.rag_service import DocumentRetriever
 from services.rag_answer_service import answer_from_document
 from services.quiz_service import (
     generate_quiz_from_pdf,
-    evaluate_quiz_answer
+    evaluate_quiz_answer,
+)
+from services.memory_service import (
+    record_learning_activity,
+    retrieve_learning_history,
 )
 
 
@@ -21,7 +25,7 @@ from services.quiz_service import (
 st.set_page_config(
     page_title="SmartStudy",
     page_icon="🎓",
-    layout="centered"
+    layout="centered",
 )
 
 
@@ -43,7 +47,7 @@ st.write(
 provider = st.selectbox(
     "Choose your AI provider:",
     ["groq", "ollama"],
-    format_func=lambda name: name.capitalize()
+    format_func=lambda name: name.capitalize(),
 )
 
 
@@ -55,7 +59,7 @@ st.header("🤖 SmartStudy AI Assistant")
 
 question = st.text_area(
     "What would you like to learn?",
-    placeholder="Example: Which topic should I revise first?"
+    placeholder="Example: Which topic should I revise first?",
 )
 
 if st.button("Ask SmartStudy", type="primary"):
@@ -69,10 +73,9 @@ if st.button("Ask SmartStudy", type="primary"):
         with st.spinner("SmartStudy is thinking..."):
 
             try:
-
                 answer = run_agent(
                     question=question,
-                    provider=provider
+                    provider=provider,
                 )
 
                 st.session_state["general_answer"] = answer
@@ -87,6 +90,23 @@ if st.button("Ask SmartStudy", type="primary"):
                 st.caption(
                     f"Technical details: {type(error).__name__}"
                 )
+
+            else:
+
+                # Save the completed learning interaction.
+                # Memory failures must not discard the AI answer.
+                try:
+                    record_learning_activity(
+                        interaction_type="general_question",
+                        topic=question,
+                        content=answer,
+                    )
+
+                except Exception:
+                    st.warning(
+                        "Your answer was generated, but "
+                        "could not be saved to learning history."
+                    )
 
 
 if "general_answer" in st.session_state:
@@ -109,7 +129,7 @@ st.header("📄 Upload Lecture Notes")
 uploaded_file = st.file_uploader(
     "Choose a PDF file",
     type=["pdf"],
-    help="Upload a text-based PDF containing lecture notes."
+    help="Upload a text-based PDF containing lecture notes.",
 )
 
 
@@ -224,7 +244,7 @@ if uploaded_file is not None:
                     "Document content",
                     value=pdf_data["full_text"],
                     height=300,
-                    disabled=True
+                    disabled=True,
                 )
 
             # --------------------------------------
@@ -243,12 +263,12 @@ if uploaded_file is not None:
                     "Example: Explain primary keys "
                     "according to these notes."
                 ),
-                key="document_question"
+                key="document_question",
             )
 
             if st.button(
                 "Ask About Document",
-                type="primary"
+                type="primary",
             ):
 
                 if not document_question.strip():
@@ -264,16 +284,43 @@ if uploaded_file is not None:
                         "generating an answer..."
                     ):
 
-                        result = answer_from_document(
-                            question=document_question,
-                            retriever=retriever,
-                            provider=provider
-                        )
+                        try:
+                            result = answer_from_document(
+                                question=document_question,
+                                retriever=retriever,
+                                provider=provider,
+                            )
 
-                        # Save answer between reruns.
-                        st.session_state[
-                            "document_result"
-                        ] = result
+                        except Exception as error:
+
+                            st.error(
+                                "Unable to generate the document answer."
+                            )
+
+                            st.caption(
+                                f"Error type: {type(error).__name__}"
+                            )
+
+                        else:
+
+                            # Save answer between reruns.
+                            st.session_state[
+                                "document_result"
+                            ] = result
+
+                            # Save the learning interaction.
+                            try:
+                                record_learning_activity(
+                                    interaction_type="document_question",
+                                    topic=document_question,
+                                    content=result["answer"],
+                                )
+
+                            except Exception:
+                                st.warning(
+                                    "The document answer was generated, "
+                                    "but could not be saved to learning history."
+                                )
 
             # --------------------------------------
             # Display RAG Answer
@@ -321,7 +368,7 @@ if uploaded_file is not None:
                                     if chunk["chunk_id"]
                                     == source["chunk_id"]
                                 ),
-                                None
+                                None,
                             )
 
                             if matching_chunk:
@@ -348,7 +395,7 @@ if uploaded_file is not None:
             quiz_topic = st.text_input(
                 "Enter a topic from your lecture notes:",
                 placeholder="Example: primary key",
-                key="quiz_topic"
+                key="quiz_topic",
             )
 
             if st.button("Generate Quiz"):
@@ -371,7 +418,7 @@ if uploaded_file is not None:
                             quiz = generate_quiz_from_pdf(
                                 chunks=chunks,
                                 topic=quiz_topic,
-                                provider=provider
+                                provider=provider,
                             )
 
                             # Save the new quiz.
@@ -436,7 +483,7 @@ if uploaded_file is not None:
                     key="quiz_selected_answer",
                     disabled=(
                         "quiz_result" in st.session_state
-                    )
+                    ),
                 )
 
                 # ----------------------------------
@@ -447,7 +494,7 @@ if uploaded_file is not None:
                     "Submit Answer",
                     disabled=(
                         "quiz_result" in st.session_state
-                    )
+                    ),
                 ):
 
                     if selected_answer is None:
@@ -458,16 +505,51 @@ if uploaded_file is not None:
 
                     else:
 
-                        # Score the answer using Python.
-                        result = evaluate_quiz_answer(
-                            quiz=quiz,
-                            selected_answer=selected_answer
-                        )
+                        try:
 
-                        # Store the result between reruns.
-                        st.session_state[
-                            "quiz_result"
-                        ] = result
+                            # Score the answer using Python.
+                            result = evaluate_quiz_answer(
+                                quiz=quiz,
+                                selected_answer=selected_answer,
+                            )
+
+                            # Store the result between reruns.
+                            st.session_state[
+                                "quiz_result"
+                            ] = result
+
+                        except Exception as error:
+
+                            st.error(
+                                "Unable to evaluate the quiz answer."
+                            )
+
+                            st.caption(
+                                f"Error type: {type(error).__name__}"
+                            )
+
+                        else:
+
+                            # Save the completed quiz result.
+                            try:
+                                record_learning_activity(
+                                    interaction_type="quiz",
+                                    topic=quiz["question"],
+                                    content=(
+                                        f"Selected answer: "
+                                        f"{quiz['options'][selected_answer]}\n"
+                                        f"Correct answer: "
+                                        f"{quiz['options'][result['correct_answer']]}\n"
+                                        f"Explanation: {result['explanation']}"
+                                    ),
+                                    score=result["score"],
+                                )
+
+                            except Exception:
+                                st.warning(
+                                    "Your quiz was evaluated, but "
+                                    "the result could not be saved."
+                                )
 
                 # ----------------------------------
                 # Display Quiz Result
@@ -549,9 +631,87 @@ else:
         "document_result",
         "current_quiz",
         "quiz_result",
-        "quiz_selected_answer"
+        "quiz_selected_answer",
     ]:
 
         st.session_state.pop(
             key, None
         )
+
+
+# --------------------------------------------------
+# Persistent Learning History
+# --------------------------------------------------
+
+st.divider()
+
+st.header("📚 Learning History")
+
+st.write(
+    "View your recently saved questions, "
+    "document answers, and quiz results."
+)
+
+if st.button("Refresh Learning History"):
+
+    try:
+
+        history = retrieve_learning_history(
+            limit=10
+        )
+
+        st.session_state[
+            "learning_history"
+        ] = history
+
+    except Exception as error:
+
+        st.error(
+            "Unable to retrieve learning history."
+        )
+
+        st.caption(
+            f"Error type: {type(error).__name__}"
+        )
+
+
+if "learning_history" in st.session_state:
+
+    history = st.session_state[
+        "learning_history"
+    ]
+
+    if not history:
+
+        st.info(
+            "No learning activity has been saved yet."
+        )
+
+    else:
+
+        for record in history:
+
+            with st.expander(
+                f"{record['interaction_type']} — "
+                f"{record['topic'][:60]}"
+            ):
+
+                st.write(
+                    f"**Date:** {record['created_at']}"
+                )
+
+                st.write(
+                    f"**Topic:** {record['topic']}"
+                )
+
+                st.write("**Content:**")
+
+                st.text(
+                    record["content"]
+                )
+
+                if record["score"] is not None:
+
+                    st.write(
+                        f"**Score:** {record['score']} / 1"
+                    )
