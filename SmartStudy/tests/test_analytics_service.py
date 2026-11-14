@@ -5,6 +5,7 @@ from services.analytics_service import (
     calculate_quiz_statistics,
     get_quiz_performance_summary,
     get_learning_activity_summary,
+    get_quiz_performance_trend,
 )
 
 
@@ -105,11 +106,50 @@ def test_empty_learning_activity():
 
     print("PASS: Empty learning activity handled correctly.")
 
+
+def test_quiz_performance_trend():
+    sample_records = [
+        {"interaction_type": "quiz", "score": 1},
+        {"interaction_type": "quiz", "score": 0},
+        {"interaction_type": "quiz", "score": 1},
+    ]
+
+    with patch(
+        "services.analytics_service.get_all_quiz_records",
+        return_value=sample_records,
+    ) as mock_retrieve:
+
+        result = get_quiz_performance_trend()
+
+        mock_retrieve.assert_called_once_with()
+
+        assert result == [
+            {"quiz_number": 1, "accuracy": 100.0},
+            {"quiz_number": 2, "accuracy": 50.0},
+            {"quiz_number": 3, "accuracy": 66.67},
+        ]
+
+    print("PASS: Quiz performance trend calculated correctly.")
+
+
+def test_empty_quiz_performance_trend():
+    with patch(
+        "services.analytics_service.get_all_quiz_records",
+        return_value=[],
+    ):
+        result = get_quiz_performance_trend()
+
+        assert result == []
+
+    print("PASS: Empty quiz performance trend handled correctly.")
+
 if __name__ == "__main__":
     test_quiz_statistics()
     test_quiz_performance_summary()
     test_empty_quiz_history()
     test_learning_activity_summary()
     test_empty_learning_activity()
+    test_quiz_performance_trend()
+    test_empty_quiz_performance_trend()
 
     print("\nAll analytics service tests passed!")

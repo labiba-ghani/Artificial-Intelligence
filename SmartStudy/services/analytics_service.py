@@ -76,3 +76,33 @@ def get_learning_activity_summary():
         "quizzes": quizzes,
         "total_interactions": total_interactions,
     }
+
+
+def get_quiz_performance_trend():
+    """
+    Calculate cumulative quiz accuracy over time
+    using all saved quiz records.
+    """
+
+    quiz_records = get_all_quiz_records()
+
+    trend = []
+    correct_answers = 0
+
+    for quiz_number, record in enumerate(
+        quiz_records, start=1
+    ):
+        correct_answers += record["score"]
+
+        accuracy = (
+            correct_answers / quiz_number
+        ) * 100
+
+        trend.append(
+            {
+                "quiz_number": quiz_number,
+                "accuracy": round(accuracy, 2),
+            }
+        )
+
+    return trend
