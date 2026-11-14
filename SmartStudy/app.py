@@ -15,17 +15,14 @@ from services.quiz_service import (
 from services.memory_service import (
 
     record_learning_activity,
-
     retrieve_learning_history,
 
 )
 
 from services.analytics_service import (
-
     get_quiz_performance_summary,
-
     get_learning_activity_summary,
-
+    get_quiz_performance_trend,
 )
 
 # --------------------------------------------------
@@ -1245,3 +1242,57 @@ except Exception:
         "Unable to load learning activity statistics."
 
     )
+
+
+# ---------------------------------------------------------
+# Quiz Performance Trend Dashboard
+# ---------------------------------------------------------
+
+st.divider()
+
+st.subheader("📈 Quiz Performance Trend")
+
+st.write(
+    "Monitor how your cumulative quiz accuracy "
+    "changes as you complete more quizzes."
+)
+
+try:
+    quiz_trend = get_quiz_performance_trend()
+
+    if quiz_trend:
+        
+        chart_data = [
+            {
+                "Quiz Number": record["quiz_number"],
+                "Cumulative Accuracy (%)": record["accuracy"],
+            }
+            for record in quiz_trend
+        ]
+
+        
+        st.line_chart(
+            chart_data,
+            x="Quiz Number",
+            y="Cumulative Accuracy (%)",
+            x_label="Quiz Number",
+            y_label="Cumulative Accuracy (%)",
+        )
+
+   
+
+        latest_accuracy = quiz_trend[-1]["accuracy"]
+
+        st.caption(
+            f"Current cumulative quiz accuracy: "
+            f"{latest_accuracy:.2f}%"
+        )
+
+    else:
+        st.info(
+            "No quiz performance data available yet. "
+            "Complete a quiz to start tracking your progress."
+        )
+
+except Exception as error:
+    st.exception(error)
