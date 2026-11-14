@@ -163,7 +163,7 @@ def get_learning_activity_counts():
 
 def get_quiz_topic_performance():
     """
-    Retrieve quiz performance grouped by topic.
+    Retrieve quiz performance grouped by normalized topic.
 
     Only completed quizzes with valid scores
     are included in the calculation.
@@ -175,16 +175,29 @@ def get_quiz_topic_performance():
 
         cursor = connection.execute(
             """
+            WITH normalized_quizzes AS (
+                SELECT
+                    CASE
+                        WHEN LOWER(TRIM(topic)) IN (
+                            'primary key',
+                            'primary keys'
+                        )
+                        THEN 'primary keys'
+                        ELSE LOWER(TRIM(topic))
+                    END AS normalized_topic,
+                    score
+                FROM learning_history
+                WHERE interaction_type = ?
+                  AND score IN (0, 1)
+                  AND TRIM(topic) != ''
+            )
             SELECT
-                LOWER(TRIM(topic)) AS topic,
+                normalized_topic AS topic,
                 COUNT(*) AS total_quizzes,
                 SUM(score) AS correct_answers
-            FROM learning_history
-            WHERE interaction_type = ?
-              AND score IN (0, 1)
-              AND TRIM(topic) != ''
-            GROUP BY LOWER(TRIM(topic))
-            ORDER BY LOWER(TRIM(topic))
+            FROM normalized_quizzes
+            GROUP BY normalized_topic
+            ORDER BY normalized_topic
             """,
             ("quiz",),
         )
@@ -193,6 +206,7 @@ def get_quiz_topic_performance():
             dict(record)
             for record in cursor.fetchall()
         ]
+
 
 
 if __name__ == "__main__":

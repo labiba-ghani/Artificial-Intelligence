@@ -91,3 +91,33 @@ def get_personalized_recommendations():
     )
 
     return recommendations
+
+
+def get_display_recommendations():
+    """
+    Return personalized recommendations suitable for
+    display in the Streamlit interface.
+
+    Exclude historical quiz records that were saved
+    using full questions instead of topic names.
+    """
+
+    recommendations = get_personalized_recommendations()
+
+    display_recommendations = []
+
+    for recommendation in recommendations:
+        topic = recommendation["topic"].strip()
+
+        # Older records sometimes contain full quiz questions.
+        # Exclude obvious question-style topic values.
+        if "?" in topic:
+            continue
+
+        # Exclude unusually long topic values.
+        if len(topic.split()) > 8:
+            continue
+
+        display_recommendations.append(recommendation)
+
+    return display_recommendations

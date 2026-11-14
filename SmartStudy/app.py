@@ -25,6 +25,8 @@ from services.analytics_service import (
     get_quiz_performance_trend,
 )
 
+from services.recommendation_service import get_display_recommendations
+
 # --------------------------------------------------
 
 # Page Configuration
@@ -1150,6 +1152,72 @@ except Exception as error:
         f"{error}"
 
     )
+
+
+# ---------------------------------------------------------
+# Personalized Learning Recommendations
+# ---------------------------------------------------------
+
+st.divider()
+
+st.header("🎯 Personalized Learning Recommendations")
+
+st.write(
+    "SmartStudy analyses your previous quiz performance "
+    "and recommends which topics you should revise."
+)
+
+try:
+    recommendations = get_display_recommendations()
+
+    if not recommendations:
+        st.info(
+            "No personalized recommendations are available yet. "
+            "Complete some quizzes to receive revision suggestions."
+        )
+
+    else:
+        for recommendation in recommendations:
+            topic = recommendation["topic"]
+            accuracy = recommendation["accuracy"]
+            priority = recommendation["priority"]
+            message = recommendation["recommendation"]
+
+            with st.container(border=True):
+                st.subheader(topic.title())
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.metric(
+                        label="Quiz Accuracy",
+                        value=f"{accuracy:.2f}%"
+                    )
+
+                with col2:
+                    st.metric(
+                        label="Revision Priority",
+                        value=priority
+                    )
+
+                st.progress(
+                    min(max(accuracy / 100, 0.0), 1.0)
+                )
+
+                if priority == "High":
+                    st.error(message)
+
+                elif priority == "Medium":
+                    st.warning(message)
+
+                else:
+                    st.success(message)
+
+except Exception as error:
+    st.error(
+        "Unable to load personalized recommendations."
+    )
+    st.exception(error)
 
 # ---------------------------------------------------------
 

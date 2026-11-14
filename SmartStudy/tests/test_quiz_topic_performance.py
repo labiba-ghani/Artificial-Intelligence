@@ -20,12 +20,13 @@ def test_quiz_topic_performance():
                 ("quiz", "Primary Keys", "Test quiz", 1),
                 ("quiz", "primary keys", "Test quiz", 0),
                 ("quiz", " PRIMARY KEYS ", "Test quiz", 1),
+                ("quiz", "Primary Key", "Test quiz", 1),
                 ("quiz", "Foreign Keys", "Test quiz", 1),
                 ("quiz", "Foreign Keys", "Test quiz", 1),
                 ("general_question", "Primary Keys", "Test question", None),
             ]
 
-            # Close the SQLite connection properly after inserting data.
+            # Insert test data and close the connection properly.
             with closing(sqlite3.connect(test_db)) as connection:
                 with connection:
                     connection.executemany(
@@ -37,7 +38,7 @@ def test_quiz_topic_performance():
                         sample_records,
                     )
 
-            # Retrieve quiz performance grouped by topic.
+            # Retrieve grouped quiz performance.
             results = db_manager.get_quiz_topic_performance()
 
             assert len(results) == 2
@@ -47,9 +48,9 @@ def test_quiz_topic_performance():
                 for record in results
             }
 
-            # Verify Primary Keys results.
-            assert performance["primary keys"]["total_quizzes"] == 3
-            assert performance["primary keys"]["correct_answers"] == 2
+            # Verify singular/plural normalization.
+            assert performance["primary keys"]["total_quizzes"] == 4
+            assert performance["primary keys"]["correct_answers"] == 3
 
             # Verify Foreign Keys results.
             assert performance["foreign keys"]["total_quizzes"] == 2
@@ -57,6 +58,7 @@ def test_quiz_topic_performance():
 
             print("PASS: Quiz results grouped by topic.")
             print("PASS: Topic names normalized correctly.")
+            print("PASS: Singular and plural topic names combined.")
             print("PASS: Correct answers counted accurately.")
             print("PASS: Non-quiz interactions excluded.")
 
