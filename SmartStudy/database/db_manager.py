@@ -161,5 +161,39 @@ def get_learning_activity_counts():
         return counts
 
 
+def get_quiz_topic_performance():
+    """
+    Retrieve quiz performance grouped by topic.
+
+    Only completed quizzes with valid scores
+    are included in the calculation.
+    """
+    initialize_database()
+
+    with closing(sqlite3.connect(DATABASE_PATH)) as connection:
+        connection.row_factory = sqlite3.Row
+
+        cursor = connection.execute(
+            """
+            SELECT
+                LOWER(TRIM(topic)) AS topic,
+                COUNT(*) AS total_quizzes,
+                SUM(score) AS correct_answers
+            FROM learning_history
+            WHERE interaction_type = ?
+              AND score IN (0, 1)
+              AND TRIM(topic) != ''
+            GROUP BY LOWER(TRIM(topic))
+            ORDER BY LOWER(TRIM(topic))
+            """,
+            ("quiz",),
+        )
+
+        return [
+            dict(record)
+            for record in cursor.fetchall()
+        ]
+
+
 if __name__ == "__main__":
     initialize_database()

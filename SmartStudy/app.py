@@ -260,6 +260,8 @@ if uploaded_file is not None:
                 "quiz_selected_answer", None
 
             )
+            # Clear the previous quiz topic.
+            st.session_state.pop("active_quiz_topic", None)
 
         # Load the processed document.
 
@@ -606,6 +608,7 @@ if uploaded_file is not None:
                                 provider=provider,
 
                             )
+                            st.session_state["active_quiz_topic"] = quiz_topic.strip()
 
                             # Save the new quiz.
 
@@ -779,7 +782,7 @@ if uploaded_file is not None:
 
                                     interaction_type="quiz",
 
-                                    topic=quiz["question"],
+                                    topic=st.session_state["active_quiz_topic"],
 
                                     content=(
 
@@ -799,15 +802,12 @@ if uploaded_file is not None:
 
                                 )
 
-                            except Exception:
-
+                            except Exception as error:
                                 st.warning(
-
                                     "Your quiz was evaluated, but "
-
                                     "the result could not be saved."
-
                                 )
+                                st.exception(error)
 
                 # ----------------------------------
 
@@ -932,6 +932,8 @@ else:
         "quiz_result",
 
         "quiz_selected_answer",
+
+        "active_quiz_topic",
 
     ]:
 
