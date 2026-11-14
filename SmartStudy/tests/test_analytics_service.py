@@ -4,6 +4,7 @@ from unittest.mock import patch
 from services.analytics_service import (
     calculate_quiz_statistics,
     get_quiz_performance_summary,
+    get_learning_activity_summary,
 )
 
 
@@ -60,9 +61,55 @@ def test_empty_quiz_history():
     print("PASS: Empty quiz history handled correctly.")
 
 
+def test_learning_activity_summary():
+    sample_counts = {
+        "general_question": 5,
+        "document_question": 3,
+        "quiz": 4,
+    }
+
+    with patch(
+        "services.analytics_service.get_learning_activity_counts",
+        return_value=sample_counts,
+    ) as mock_retrieve:
+
+        result = get_learning_activity_summary()
+
+        mock_retrieve.assert_called_once_with()
+
+        assert result["general_questions"] == 5
+        assert result["document_questions"] == 3
+        assert result["quizzes"] == 4
+        assert result["total_interactions"] == 12
+
+    print("PASS: Learning activity summary calculated correctly.")
+
+
+def test_empty_learning_activity():
+    empty_counts = {
+        "general_question": 0,
+        "document_question": 0,
+        "quiz": 0,
+    }
+
+    with patch(
+        "services.analytics_service.get_learning_activity_counts",
+        return_value=empty_counts,
+    ):
+        result = get_learning_activity_summary()
+
+        assert result["general_questions"] == 0
+        assert result["document_questions"] == 0
+        assert result["quizzes"] == 0
+        assert result["total_interactions"] == 0
+
+    print("PASS: Empty learning activity handled correctly.")
+
 if __name__ == "__main__":
     test_quiz_statistics()
     test_quiz_performance_summary()
     test_empty_quiz_history()
+    test_learning_activity_summary()
+    test_empty_learning_activity()
 
     print("\nAll analytics service tests passed!")

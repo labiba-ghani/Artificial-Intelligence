@@ -128,5 +128,38 @@ def get_all_quiz_records():
         return [dict(record) for record in records]
 
 
+def get_learning_activity_counts():
+    """
+    Count saved learning interactions by type.
+
+    Returns a dictionary containing the number
+    of general questions, document questions,
+    and completed quizzes.
+    """
+
+    initialize_database()
+
+    with closing(sqlite3.connect(DATABASE_PATH)) as connection:
+        cursor = connection.execute(
+            """
+            SELECT interaction_type, COUNT(*) AS total
+            FROM learning_history
+            GROUP BY interaction_type
+            """
+        )
+
+        counts = {
+            "general_question": 0,
+            "document_question": 0,
+            "quiz": 0,
+        }
+
+        for interaction_type, total in cursor.fetchall():
+            if interaction_type in counts:
+                counts[interaction_type] = total
+
+        return counts
+
+
 if __name__ == "__main__":
     initialize_database()

@@ -16,7 +16,7 @@ from services.memory_service import (
     record_learning_activity,
     retrieve_learning_history,
 )
-
+from services.analytics_service import get_quiz_performance_summary
 
 # --------------------------------------------------
 # Page Configuration
@@ -715,3 +715,72 @@ if "learning_history" in st.session_state:
                     st.write(
                         f"**Score:** {record['score']} / 1"
                     )
+
+
+# ---------------------------------------------------------
+# Learning Analytics Dashboard
+# ---------------------------------------------------------
+
+st.divider()
+
+st.header("📊 Learning Analytics")
+
+st.write(
+    "Track your quiz performance and monitor "
+    "your learning progress."
+)
+
+try:
+    statistics = get_quiz_performance_summary()
+
+    total_quizzes = statistics["total_quizzes"]
+    correct_answers = statistics["correct_answers"]
+    incorrect_answers = statistics["incorrect_answers"]
+    accuracy = statistics["accuracy"]
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.metric(
+            label="Total Quizzes",
+            value=total_quizzes,
+        )
+
+        st.metric(
+            label="Correct Answers",
+            value=correct_answers,
+        )
+
+    with col2:
+        st.metric(
+            label="Accuracy",
+            value=f"{accuracy:.2f}%",
+        )
+
+        st.metric(
+            label="Incorrect Answers",
+            value=incorrect_answers,
+        )
+
+    st.subheader("Quiz Accuracy")
+
+    if total_quizzes > 0:
+        st.progress(accuracy / 100)
+
+        st.caption(
+            f"You answered {correct_answers} "
+            f"out of {total_quizzes} quizzes correctly."
+        )
+
+    else:
+        st.info(
+            "No completed quizzes yet. "
+            "Generate and answer a quiz to "
+            "start tracking your progress."
+        )
+
+except Exception as error:
+    st.error(
+        "Unable to load learning analytics: "
+        f"{error}"
+    )

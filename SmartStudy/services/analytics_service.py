@@ -1,5 +1,8 @@
 
-from database.db_manager import get_all_quiz_records
+from database.db_manager import (
+    get_all_quiz_records,
+    get_learning_activity_counts,
+)
 
 
 def calculate_quiz_statistics(history):
@@ -47,3 +50,29 @@ def get_quiz_performance_summary():
     history = get_all_quiz_records()
 
     return calculate_quiz_statistics(history)
+
+
+def get_learning_activity_summary():
+    """
+    Retrieve learning activity counts and
+    calculate total learning interactions.
+    """
+
+    activity_counts = get_learning_activity_counts()
+
+    general_questions = activity_counts["general_question"]
+    document_questions = activity_counts["document_question"]
+    quizzes = activity_counts["quiz"]
+
+    total_interactions = (
+        general_questions
+        + document_questions
+        + quizzes
+    )
+
+    return {
+        "general_questions": general_questions,
+        "document_questions": document_questions,
+        "quizzes": quizzes,
+        "total_interactions": total_interactions,
+    }
