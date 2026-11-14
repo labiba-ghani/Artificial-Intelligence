@@ -94,5 +94,39 @@ def get_learning_history(limit=10):
         return [dict(record) for record in records]
 
 
+def get_all_quiz_records():
+    """
+    Retrieve all completed quiz interactions.
+
+    Returns a list of dictionaries containing
+    quiz topics, scores, and timestamps.
+    """
+
+    initialize_database()
+
+    with closing(sqlite3.connect(DATABASE_PATH)) as connection:
+        connection.row_factory = sqlite3.Row
+
+        cursor = connection.execute(
+            """
+            SELECT
+                id,
+                interaction_type,
+                topic,
+                score,
+                created_at
+            FROM learning_history
+            WHERE interaction_type = ?
+              AND score IN (0, 1)
+            ORDER BY id ASC
+            """,
+            ("quiz",)
+        )
+
+        records = cursor.fetchall()
+
+        return [dict(record) for record in records]
+
+
 if __name__ == "__main__":
     initialize_database()
