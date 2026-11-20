@@ -4,6 +4,8 @@
 # Phase 11: AI-Powered Study Planning
 # ---------------------------------------------------------
 
+from services.adaptive_learning_service import get_adaptive_quiz_plans
+
 # Priority weights for each learning classification.
 # Higher weights mean more study time.
 STUDY_PRIORITY_WEIGHTS = {
@@ -138,3 +140,154 @@ def generate_study_sessions(study_plan):
         })
 
     return study_sessions
+
+
+def get_personalized_study_plan(total_minutes=60, min_attempts=3):
+    """
+    Generate a personalized study plan using the student's
+    actual quiz performance stored in SQLite.
+
+    Parameters:
+        total_minutes: Available study time in minutes.
+        min_attempts: Minimum quiz attempts needed for
+            a reliable performance classification.
+
+    Returns:
+        A list of personalized study sessions.
+    """
+
+    # Retrieve topic assessments from learning history.
+    topic_assessments = get_adaptive_quiz_plans(
+        min_attempts=min_attempts
+    )
+
+    # Allocate available study time across topics.
+    study_plan = allocate_study_time(
+        topic_assessments=topic_assessments,
+        total_minutes=total_minutes
+    )
+
+    # Generate recommended activities for each topic.
+    study_sessions = generate_study_sessions(
+        study_plan=study_plan
+    )
+
+    return study_sessions
+
+
+def generate_study_schedule(study_sessions, number_of_days):
+    """
+    Distribute personalized study sessions across multiple days.
+
+    Parameters:
+        study_sessions: List of study session dictionaries.
+        number_of_days: Number of days in the schedule.
+
+    Returns:
+        A list of daily schedules containing:
+            - day
+            - sessions
+            - total_minutes
+    """
+
+    if isinstance(number_of_days, bool) or not isinstance(number_of_days, int):
+        raise ValueError("Number of days must be an integer.")
+
+    if number_of_days <= 0:
+        raise ValueError("Number of days must be greater than zero.")
+
+    schedule = [
+        {
+            "day": day + 1,
+            "sessions": [],
+            "total_minutes": 0,
+        }
+        for day in range(number_of_days)
+    ]
+
+    # Distribute each topic's study time across the days.
+    for session in study_sessions:
+        duration = session["duration_minutes"]
+
+        if isinstance(duration, bool) or not isinstance(duration, int):
+            raise ValueError("Session duration must be an integer.")
+
+        if duration < 0:
+            raise ValueError("Session duration cannot be negative.")
+
+        minutes_per_day, remaining_minutes = divmod(
+            duration, number_of_days
+        )
+
+        for day_index in range(number_of_days):
+            daily_minutes = minutes_per_day
+
+            if day_index < remaining_minutes:
+                daily_minutes += 1
+
+            if daily_minutes == 0:
+                continue
+
+            daily_session = {
+                **session,
+                "duration_minutes": daily_minutes,
+            }
+
+            schedule[day_index]["sessions"].append(daily_session)
+            schedule[day_index]["total_minutes"] += daily_minutes
+
+    return schedule
+
+
+def get_daily_study_schedule(
+    minutes_per_day=60,
+    number_of_days=7,
+    min_attempts=3
+):
+    """
+    Generate a personalized daily or weekly study schedule
+    using the student's actual learning history.
+
+    Parameters:
+        minutes_per_day: Available study minutes per day.
+        number_of_days: Number of days to schedule.
+        min_attempts: Minimum quiz attempts for classification.
+
+    Returns:
+        A list of daily study schedules.
+    """
+
+    if (
+        isinstance(minutes_per_day, bool)
+        or not isinstance(minutes_per_day, int)
+        or minutes_per_day <= 0
+    ):
+        raise ValueError(
+            "Daily study time must be a positive integer."
+        )
+
+    if (
+        isinstance(number_of_days, bool)
+        or not isinstance(number_of_days, int)
+        or number_of_days <= 0
+    ):
+        raise ValueError(
+            "Number of days must be a positive integer."
+        )
+
+    # Calculate the total available study time.
+    total_minutes = minutes_per_day * number_of_days
+
+    # Generate personalized sessions from SQLite history.
+    study_sessions = get_personalized_study_plan(
+        total_minutes=total_minutes,
+        min_attempts=min_attempts
+    )
+
+    # Distribute sessions across the requested days.
+    schedule = generate_study_schedule(
+        study_sessions=study_sessions,
+        number_of_days=number_of_days
+    )
+
+    return schedule
