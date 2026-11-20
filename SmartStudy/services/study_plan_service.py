@@ -175,19 +175,25 @@ def get_personalized_study_plan(total_minutes=60, min_attempts=3):
     return study_sessions
 
 
+
 def generate_study_schedule(study_sessions, number_of_days):
     """
-    Distribute personalized study sessions evenly across days.
+    Generate a balanced multi-day study schedule.
 
-    Each topic retains its total allocated study time,
-    while daily study durations remain balanced.
+    Guarantees:
+    - Every topic retains its total allocated minutes.
+    - Daily study time differs by at most one minute.
+    - Topics are distributed across the study period.
     """
 
-    if isinstance(number_of_days, bool) or not isinstance(number_of_days, int):
-        raise ValueError("Number of days must be an integer.")
-
-    if number_of_days <= 0:
-        raise ValueError("Number of days must be greater than zero.")
+    if (
+        isinstance(number_of_days, bool)
+        or not isinstance(number_of_days, int)
+        or number_of_days <= 0
+    ):
+        raise ValueError(
+            "Number of days must be a positive integer."
+        )
 
     schedule = [
         {
@@ -198,42 +204,100 @@ def generate_study_schedule(study_sessions, number_of_days):
         for day in range(number_of_days)
     ]
 
+    # Validate all durations before allocating time.
     for session in study_sessions:
         duration = session["duration_minutes"]
 
-        if isinstance(duration, bool) or not isinstance(duration, int):
-            raise ValueError("Session duration must be an integer.")
+        if (
+            isinstance(duration, bool)
+            or not isinstance(duration, int)
+            or duration < 0
+        ):
+            raise ValueError(
+                "Session duration must be a non-negative integer."
+            )
 
-        if duration < 0:
-            raise ValueError("Session duration cannot be negative.")
+    total_minutes = sum(
+        session["duration_minutes"]
+        for session in study_sessions
+    )
 
-        # Divide the topic's duration across all study days.
-        minutes_per_day, remaining_minutes = divmod(
-            duration, number_of_days
+    base_daily_minutes, extra_daily_minutes = divmod(
+        total_minutes, number_of_days
+    )
+
+    daily_targets = [
+        base_daily_minutes + (1 if day < extra_daily_minutes else 0)
+        for day in range(number_of_days)
+    ]
+
+    # Step 1: Distribute the base duration of each topic
+    # equally across all days.
+    remainders = []
+
+    for session in study_sessions:
+        base_minutes, remaining_minutes = divmod(
+            session["duration_minutes"],
+            number_of_days
         )
 
-        # Assign the base minutes to every day.
+        remainders.append(remaining_minutes)
+
         for day_index in range(number_of_days):
-            if minutes_per_day > 0:
-                daily_session = {
-                    **session,
-                    "duration_minutes": minutes_per_day,
-                }
+            if base_minutes == 0:
+                continue
 
-                schedule[day_index]["sessions"].append(daily_session)
-                schedule[day_index]["total_minutes"] += minutes_per_day
+            daily_session = {
+                **session,
+                "duration_minutes": base_minutes,
+            }
 
-        # Distribute leftover minutes to the least busy days.
+            schedule[day_index]["sessions"].append(
+                daily_session
+            )
+
+            schedule[day_index]["total_minutes"] += base_minutes
+
+    # Step 2: Allocate leftover topic minutes to days
+    # with available capacity.
+    for session, remaining_minutes in zip(
+        study_sessions, remainders
+    ):
         for _ in range(remaining_minutes):
+            available_days = [
+                index
+                for index in range(number_of_days)
+                if schedule[index]["total_minutes"]
+                < daily_targets[index]
+                and not any(
+                    item["topic"] == session["topic"]
+                    for item in schedule[index]["sessions"]
+                )
+            ]
+
+            # If the topic already has a base allocation,
+            # allow one additional minute on that day.
+            if not available_days:
+                available_days = [
+                    index
+                    for index in range(number_of_days)
+                    if schedule[index]["total_minutes"]
+                    < daily_targets[index]
+                ]
+
+            if not available_days:
+                raise ValueError(
+                    "Unable to distribute the remaining study minutes."
+                )
+
             day_index = min(
-                range(number_of_days),
+                available_days,
                 key=lambda index: (
                     schedule[index]["total_minutes"],
                     index,
-                ),
+                )
             )
 
-            # Find this topic's session for the selected day.
             matching_session = next(
                 (
                     item
@@ -246,15 +310,15 @@ def generate_study_schedule(study_sessions, number_of_days):
             if matching_session is not None:
                 matching_session["duration_minutes"] += 1
             else:
-                daily_session = {
+                schedule[day_index]["sessions"].append({
                     **session,
                     "duration_minutes": 1,
-                }
-                schedule[day_index]["sessions"].append(daily_session)
+                })
 
             schedule[day_index]["total_minutes"] += 1
 
     return schedule
+
 
 
 def get_daily_study_schedule(
