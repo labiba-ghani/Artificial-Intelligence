@@ -88,20 +88,27 @@ def detect_weak_topics(topic_performance, min_attempts=3):
 def get_learning_topic_assessment(min_attempts=3):
     """
     Retrieve quiz performance from SQLite and classify
-    each topic based on accuracy and completed attempts.
+    valid learning topics.
 
-    Returns:
-        A list of topic assessments ordered by priority.
+    Historical quiz records containing entire questions
+    are excluded from adaptive learning assessments.
     """
 
-    # Retrieve aggregated quiz performance from SQLite.
     topic_performance = get_quiz_topic_performance()
 
-    # Apply the weak-topic detection rules.
-    assessments = detect_weak_topics(
-        topic_performance,
+    valid_topics = []
+
+    for record in topic_performance:
+        topic = record["topic"]
+
+        # Exclude historical records that stored quiz questions
+        # instead of short topic names.
+        if "?" in topic or len(topic.split()) > 8:
+            continue
+
+        valid_topics.append(record)
+
+    return detect_weak_topics(
+        valid_topics,
         min_attempts=min_attempts,
     )
-
-    return assessments
-
