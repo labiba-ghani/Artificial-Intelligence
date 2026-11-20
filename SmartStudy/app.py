@@ -22,6 +22,7 @@ from services.analytics_service import (
     get_quiz_performance_trend,
 )
 from services.recommendation_service import get_display_recommendations
+from services.study_plan_service import get_daily_study_schedule
 # --------------------------------------------------
 # Page Configuration
 # --------------------------------------------------
@@ -704,6 +705,122 @@ except Exception:
     st.error(
         "Unable to load learning activity statistics."
     )
+
+
+# ---------------------------------------------------------
+# Personalized Study Planner
+# Phase 11: AI-Powered Study Planning
+# ---------------------------------------------------------
+
+st.divider()
+st.header("📅 Personalized Study Planner")
+
+st.write(
+    "Create a personalized study schedule based on your "
+    "quiz performance and available study time."
+)
+
+planner_col1, planner_col2 = st.columns(2)
+
+with planner_col1:
+    study_minutes = st.number_input(
+        "Study minutes per day",
+        min_value=1,
+        max_value=480,
+        value=60,
+        step=5,
+        key="planner_minutes",
+    )
+
+with planner_col2:
+    study_days = st.number_input(
+        "Number of study days",
+        min_value=1,
+        max_value=30,
+        value=7,
+        step=1,
+        key="planner_days",
+    )
+
+if st.button("Generate Study Plan", type="primary"):
+    with st.spinner("Creating your personalized study schedule..."):
+        try:
+            schedule = get_daily_study_schedule(
+                minutes_per_day=int(study_minutes),
+                number_of_days=int(study_days),
+            )
+
+        except Exception as error:
+            st.error("Unable to generate your study plan.")
+            st.caption(
+                f"Error type: {type(error).__name__}"
+            )
+
+        else:
+            st.session_state["study_schedule"] = schedule
+
+            if not schedule or not any(
+                day["sessions"] for day in schedule
+            ):
+                st.info(
+                    "No study topics are available yet. "
+                    "Complete some quizzes to generate a study plan."
+                )
+
+if "study_schedule" in st.session_state:
+    schedule = st.session_state["study_schedule"]
+
+    if schedule and any(day["sessions"] for day in schedule):
+        total_study_minutes = sum(
+            day["total_minutes"] for day in schedule
+        )
+
+        st.success("Your personalized study plan is ready!")
+
+        summary_col1, summary_col2, summary_col3 = st.columns(3)
+
+        with summary_col1:
+            st.metric("Study Days", len(schedule))
+
+        with summary_col2:
+            st.metric(
+                "Total Hours",
+                f"{total_study_minutes / 60:.1f}",
+            )
+
+        with summary_col3:
+            st.metric(
+                "Total Minutes",
+                total_study_minutes,
+            )
+
+        for day in schedule:
+            with st.expander(
+                f"Day {day['day']} — "
+                f"{day['total_minutes']} minutes",
+                expanded=(day["day"] == 1),
+            ):
+                for session in day["sessions"]:
+                    st.markdown(
+                        f"#### 📚 {session['topic'].title()}"
+                    )
+
+                    st.write(
+                        f"**Classification:** "
+                        f"{session['classification']}"
+                    )
+
+                    st.write(
+                        f"**Duration:** "
+                        f"{session['duration_minutes']} minutes"
+                    )
+
+                    st.write(
+                        f"**Activity:** {session['activity']}"
+                    )
+
+                    st.divider()
+
 # ---------------------------------------------------------
 # Quiz Performance Trend Dashboard
 # ---------------------------------------------------------

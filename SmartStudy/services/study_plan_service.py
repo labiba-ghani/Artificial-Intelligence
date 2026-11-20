@@ -177,17 +177,10 @@ def get_personalized_study_plan(total_minutes=60, min_attempts=3):
 
 def generate_study_schedule(study_sessions, number_of_days):
     """
-    Distribute personalized study sessions across multiple days.
+    Distribute personalized study sessions evenly across days.
 
-    Parameters:
-        study_sessions: List of study session dictionaries.
-        number_of_days: Number of days in the schedule.
-
-    Returns:
-        A list of daily schedules containing:
-            - day
-            - sessions
-            - total_minutes
+    Each topic retains its total allocated study time,
+    while daily study durations remain balanced.
     """
 
     if isinstance(number_of_days, bool) or not isinstance(number_of_days, int):
@@ -205,7 +198,6 @@ def generate_study_schedule(study_sessions, number_of_days):
         for day in range(number_of_days)
     ]
 
-    # Distribute each topic's study time across the days.
     for session in study_sessions:
         duration = session["duration_minutes"]
 
@@ -215,26 +207,52 @@ def generate_study_schedule(study_sessions, number_of_days):
         if duration < 0:
             raise ValueError("Session duration cannot be negative.")
 
+        # Divide the topic's duration across all study days.
         minutes_per_day, remaining_minutes = divmod(
             duration, number_of_days
         )
 
+        # Assign the base minutes to every day.
         for day_index in range(number_of_days):
-            daily_minutes = minutes_per_day
+            if minutes_per_day > 0:
+                daily_session = {
+                    **session,
+                    "duration_minutes": minutes_per_day,
+                }
 
-            if day_index < remaining_minutes:
-                daily_minutes += 1
+                schedule[day_index]["sessions"].append(daily_session)
+                schedule[day_index]["total_minutes"] += minutes_per_day
 
-            if daily_minutes == 0:
-                continue
+        # Distribute leftover minutes to the least busy days.
+        for _ in range(remaining_minutes):
+            day_index = min(
+                range(number_of_days),
+                key=lambda index: (
+                    schedule[index]["total_minutes"],
+                    index,
+                ),
+            )
 
-            daily_session = {
-                **session,
-                "duration_minutes": daily_minutes,
-            }
+            # Find this topic's session for the selected day.
+            matching_session = next(
+                (
+                    item
+                    for item in schedule[day_index]["sessions"]
+                    if item["topic"] == session["topic"]
+                ),
+                None,
+            )
 
-            schedule[day_index]["sessions"].append(daily_session)
-            schedule[day_index]["total_minutes"] += daily_minutes
+            if matching_session is not None:
+                matching_session["duration_minutes"] += 1
+            else:
+                daily_session = {
+                    **session,
+                    "duration_minutes": 1,
+                }
+                schedule[day_index]["sessions"].append(daily_session)
+
+            schedule[day_index]["total_minutes"] += 1
 
     return schedule
 
